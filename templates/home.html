@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% load account %}
+
+{% load socialaccount %}
+{% get_social_accounts user as accounts %}
+
+{% block title %}Take-Home{% endblock %}
+
+{% block content %}
+<div id="vue-app" class="row justify-content-center bg-white p-5 shadow rounded">
+    <header class="text-center pb-5">
+        {% if user.is_authenticated %}
+        <p>Welcome, You are logged in {% user_display user %}!</p>
+        {% else %}
+        <a href="{% provider_login_url 'google' %}">Login With Google</a>
+        {% endif %}
+
+        {% if accounts.github %}
+        {% else %}
+        <a href="{% provider_login_url 'github' process='connect' %}">Link GitHub</a>
+        {% endif %}
+    </header>
+
+    <div v-if="errored">
+        <p></p>
+    </div>
+
+    <div v-else>
+        <div v-if="loading">Loading...</div>
+
+        <div v-else class="row">
+            <div class="col-sm">
+                <h6 class="h4">Repo</h6>
+                <ul>
+                    <li v-for="(repo, index) in repo">
+                      {{ index }} - {{ repo.name }}
+                    </li>
+                  </ul>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+
+{% block javascript %}
+{{ account.extra_data.login|json_script:"githubAccount" }}
+<script>
+    axios.defaults.xsrfCookieName = 'csrftoken';
+    axios.defaults.xsrfHeaderName = "X-CSRFTOKEN";
+    const account = JSON.parse(document.getElementById('githubAccount').textContent);
+    console.log(account)
+
+    let app = new Vue({
+        delimiters: ["[[", "]]"],
+        el: '#vue-app',
+        data: {
+            repos: [],
+            loading: true,
+            errored: false,
+        },
+
+        methods: {
+            getRepos() {
+                axios
+                    .get(`https://api.github.com/users/${account}/repos`)
+                    .then(response => {
+                        this.repos = response.data
+                    })
+                    .catch(error => {
+                        console.log(error);
+                        this.errored = true
+                    })
+                    .finally(() => this.loading = false)
+            }
+        },
+        mounted() {
+
+            this.getRepos();
+        }
+    });
+
+
+</script>
+{% endblock %}
